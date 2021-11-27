@@ -1,43 +1,78 @@
 const {response , request} = require('express');
+const Usuario = require('../models/usuario')
+const bcryptjs = require('bcryptjs');
 
 
-const usuarioGet = (req = request , res = response) => {
-    const query = req.query;
-
-    res.json({
-        msg:'Usuario GET Actualizado',
-        query
-    });
-}
-
-const usuarioPut = (req , res = response) => {
-
-    const { id, nombre ='', apikey,  page, limitPage="890" } = req.params;
-
-    res.json({
-        msg:'Usuario PUT Actualizado',
-        id,
-        nombre, 
-        apikey,
-        page,
-        limitPage
-    });
-}
-
-const usuarioPost = (req , res = response) => {
-
-    const body = req.body;
+const usuarioGet = async (req = request , res = response) => {
     
+    const {limite = 5, desde = 0} = req.query;
+    const query = {estado: true};
+
+    const [total,usuarios] = await Promise.all([
+        Usuario.countDocuments(query),
+        Usuario.find(query)
+        .skip(Number(desde))
+        .limit(Number(limite)),
+    ])
+
+    res.json({
+        total,
+        usuarios
+    });
+}
+
+const usuarioPut = async (req , res = response) => {
+
+    const { id } = req.params;
+    const { _id, contraseña, google, correo, ...resto} = req.body;
+
+    //TODO validar
+
+    if (contraseña){
+    //Encriptar la contraseña
+        const salt = bcryptjs.genSaltSync();
+        resto.contraseña = bcryptjs.hashSync(contraseña,salt);        
+    }
+
+    const usuario = await Usuario.findByIdAndUpdate(id, resto);
+
+    res.json({
+        msg:'Usuario PUT la Modificacion se ha realizado correctamente ',
+        usuario
+    });
+}
+
+const usuarioPost = async (req , res = response) => {
+
+    const {nombre, correo, contraseña, rol} = req.body;
+    const usuario = new Usuario({ nombre, correo, contraseña, rol });
+    
+    //Encriptar la contraseña
+    const salt = bcryptjs.genSaltSync();
+    usuario.contraseña = bcryptjs.hashSync(contraseña,salt);
+
+    //Guardarmos en la base de datos para hacerlo debe de estar asincronbico con AWAIT
+    await usuario.save();
+
+    res.json({usuario});
+
     res.json({
         msg:'Usuario POST Actualizado',
-        body
+        usuario
     });
+
 }
 
-const usuarioDelete = (req , res = response) => {
+const usuarioDelete = async (req , res = response) => {
     
+    const {id} = req.params;
+
+    //const usuario = await Usuario.findByIdAndDelete(id);
+
+    const usuario = await Usuario.findByIdAndUpdate(id, {estado: false}); 
+
     res.json({
-        msg:'Usuario DELETE Actualizado'
+        usuario
     });
 }
 
